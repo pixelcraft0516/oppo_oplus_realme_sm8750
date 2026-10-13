@@ -603,20 +603,13 @@ jobs:
             KBUILD_TS="$(TZ='UTC' date +'%a %b %d %T UTC %Y')"
           fi
           export KBUILD_BUILD_TIMESTAMP="$KBUILD_TS"
-          export KBUILD_BUILD_USER="cctv18"
+          export KBUILD_BUILD_USER="starrysnown"
           export KBUILD_BUILD_HOST="buildhost"
           echo "KBUILD_BUILD_TIMESTAMP=$KBUILD_BUILD_TIMESTAMP"
 
           # ===== FAKESTAT / FAKETIME 从同一时间派生，供 ccache/编译器使用 =====
-          EPOCH=$(date -u -d "$KBUILD_TS" +%s 2>/dev/null)
-          if [[ -n "$EPOCH" ]]; then
-            export FAKETIME="@$EPOCH"
-            export FAKESTAT="$(date -u -d "@$EPOCH" +'%Y-%m-%d %H:%M:%S')"
-          else
-            export FAKETIME="@$(date -u +%s)"
-            export FAKESTAT="$(date -u +'%Y-%m-%d %H:%M:%S')"
-          fi
-          echo "FAKESTAT=$FAKESTAT" >> $GITHUB_ENV
+          export FAKETIME="@$(date -u -d "$KBUILD_TS" +'%Y-%m-%d %H:%M:%S')"
+          export FAKESTAT="$(date -u -d "$KBUILD_TS" +'%Y-%m-%d %H:%M:%S')"
           echo "FAKETIME=$FAKETIME" >> $GITHUB_ENV
           echo "FAKESTAT=$FAKESTAT"
           echo "FAKETIME=$FAKETIME"
