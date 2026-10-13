@@ -93,7 +93,7 @@ on:
         description: "自定义内核名称（）"
         required: false
         type: string
-        default: 'android15-8-g14220ae4ce65-ab13680582-4k'
+        default: 'android15-8-g14220ae4ce65-ab13680582-4k '
       kernel_suffix:
         description: '内核后缀(留空默认,开头别加连字符,勿加空格等影响指令运行的保留字符)'
         required: false
@@ -262,7 +262,7 @@ jobs:
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" ]]; then
             echo "正在配置BakaSU（由于SukiSU长期未维护无法正常编译，且BakaSU兼容sukisu管理器，故SukiSU源码仓库已重定向为bakasu）..."
             curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh" | bash -s main
-            echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
+            echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@starrysnown"' >> ./common/arch/arm64/configs/gki_defconfig
             cd ./KernelSU
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
             KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
@@ -594,10 +594,32 @@ jobs:
           wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/lib/libfakestat.so
           wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/lib/libfaketimeMT.so
           chmod 777 ./*.so
-          export FAKESTAT="2025-05-25 12:00:00"
-          export FAKETIME="@2025-05-25 13:00:00"
+
+          # ===== 关键：内核版本字符串的时间由 KBUILD_BUILD_TIMESTAMP 决定 =====
+          INPUT_TIME="${{ inputs.build_time }}"
+          if [[ -n "$INPUT_TIME" && "$INPUT_TIME" != "N" && "$INPUT_TIME" != "n" ]]; then
+            KBUILD_TS="$INPUT_TIME"
+          else
+            KBUILD_TS="$(TZ='UTC' date +'%a %b %d %T UTC %Y')"
+          fi
+          export KBUILD_BUILD_TIMESTAMP="$KBUILD_TS"
+          export KBUILD_BUILD_USER="cctv18"
+          export KBUILD_BUILD_HOST="buildhost"
+          echo "KBUILD_BUILD_TIMESTAMP=$KBUILD_BUILD_TIMESTAMP"
+
+          # ===== FAKESTAT / FAKETIME 从同一时间派生，供 ccache/编译器使用 =====
+          EPOCH=$(date -u -d "$KBUILD_TS" +%s 2>/dev/null)
+          if [[ -n "$EPOCH" ]]; then
+            export FAKETIME="@$EPOCH"
+            export FAKESTAT="$(date -u -d "@$EPOCH" +'%Y-%m-%d %H:%M:%S')"
+          else
+            export FAKETIME="@$(date -u +%s)"
+            export FAKESTAT="$(date -u +'%Y-%m-%d %H:%M:%S')"
+          fi
           echo "FAKESTAT=$FAKESTAT" >> $GITHUB_ENV
           echo "FAKETIME=$FAKETIME" >> $GITHUB_ENV
+          echo "FAKESTAT=$FAKESTAT"
+          echo "FAKETIME=$FAKETIME"
           SO_DIR=$(pwd)
           export PRELOAD_LIBS="$SO_DIR/libfakestat.so $SO_DIR/libfaketimeMT.so"
           #创建 CC (编译器) 包装器
@@ -712,13 +734,7 @@ jobs:
           else
             FULL_VERSION=${{ env.KERNEL_VERSION }}.${{ env.SUB_VERSION }}-${{ github.event.inputs.kernel_name }}
           fi
-          INPUT_TIME="${{ inputs.build_time }}"
-          if [[ -n "$INPUT_TIME" && "$INPUT_TIME" != "N" && "$INPUT_TIME" != "n" ]]; then
-            DATESTR="$INPUT_TIME"
-          else
-            DATESTR="$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')"
-          fi
-          TIME_NOW="$DATESTR"
+          TIME_NOW="$(TZ='Asia/Shanghai' date +'%y%m%d%H%M%S')"
           echo "Author: $GITHUB_ACTOR" > ./ak3.log
           echo "Repo: $GITHUB_REPOSITORY" >> ./ak3.log
           echo "Branch: $GITHUB_REF_NAME" >> ./ak3.log
@@ -782,7 +798,7 @@ jobs:
             export FULL_VERSION=$FULL_VERSION
           fi
           TIME="$(TZ='Asia/Shanghai' date +'%y%m%d%H%M%S')"
-          TIME_FORM="$DATESTR"
+          TIME_FORM="$(TZ='Asia/Shanghai' date +'%y%m%d%H%M%S')"
           echo "TIME=$TIME" >> $GITHUB_ENV
           echo "TIME_FORM=$TIME_FORM" >> $GITHUB_ENV
           TAG_HEAD="OPPO-OPlus-Realme-build"
